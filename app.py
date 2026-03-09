@@ -108,21 +108,22 @@ with st.sidebar:
 
 st.title("Control Center")
 
-# --- Quick Add Fix (No Loop) ---
+# --- Quick Add (Fixed) ---
 
-if "quick_add_value" not in st.session_state:
-    st.session_state.quick_add_value = ""
+if "quick_add_input" not in st.session_state:
+    st.session_state.quick_add_input = ""
 
 st.markdown("### ⚡ Quick Add")
 
 lazy_val = st.text_input(
     "Type 'Task + Priority' and press Enter",
     placeholder="e.g. Call bank high",
-    label_visibility="collapsed",
-    key="quick_add_value"
+    label_visibility="collapsed"
 )
 
-if lazy_val.strip():
+if lazy_val.strip() and lazy_val != st.session_state.quick_add_input:
+
+    st.session_state.quick_add_input = lazy_val
 
     parts = lazy_val.strip().split()
 
@@ -141,15 +142,11 @@ if lazy_val.strip():
         "priority": prio
     })
 
-    st.session_state.quick_add_value = ""   # FIX
-
     st.toast(f"Added: {title}", icon="🚀")
 
     time.sleep(0.3)
 
     st.rerun()
-
-st.divider()
 
 # --- Fetch Tasks ---
 
