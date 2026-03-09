@@ -11,116 +11,83 @@ st.set_page_config(page_title="TaskFlow Pro", page_icon="🚀", layout="wide")
 st.markdown("""
     <style>
     .main { background-color: #f8f9fa; }
-    .stButton>button { width: 100%; border-radius: 8px; height: 3em; transition: 0.3s; }
-    .stButton>button:hover { border: 1px solid #6366f1; color: #6366f1; }
-    .task-container {
-        padding: 1rem;
-        border-radius: 10px;
-        background-color: white;
-        border-left: 5px solid #6366f1;
-        margin-bottom: 10px;
+    .stButton>button { width: 100%; border-radius: 8px; transition: 0.3s; height: 3em; }
+    .task-card {
+        padding: 1rem; border-radius: 10px; background-color: white;
+        border-left: 5px solid #6366f1; margin-bottom: 10px;
         box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     }
-    .done-text { text-decoration: line-through; color: #9ca3af; }
+    .done-text { text-decoration: line-through; color: #9ca3af; font-style: italic; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- API Helper Functions ---
-def fetch_tasks():
+# --- API Wrapper with Error Handling ---
+def api_call(method, endpoint, json=None):
     try:
-        res = requests.get(f"{API_URL}/tasks", timeout=10)
-        return res.json() if res.status_code == 200 else []
-    except Exception:
+        url = f"{API_URL}{endpoint}"
+        if method == "GET": return requests.get(url, timeout=10)
+        if method == "POST": return requests.post(url, json=json, timeout=10)
+        if method == "PUT": return requests.put(url, json=json, timeout=10)
+        if method == "DELETE": return requests.delete(url, timeout=10)
+    except Exception as e:
+        st.error(f"Connection Error: {e}")
         return None
 
-def update_task_api(task):
-    requests.put(f"{API_URL}/tasks/update_task/{task['id']}", json=task)
+# --- Main Dashboard Logic ---
+st.title("🚀 TaskFlow Control Center")
 
-def delete_task_api(tid):
-    requests.delete(f"{API_URL}/tasks/delete_task/{tid}")
-
-def create_task_api(payload):
-    requests.post(f"{API_URL}/tasks/create_task", json=payload)
-
-# --- Sidebar: Detailed Add ---
-with st.sidebar:
-    st.title("🚀 TaskFlow Pro")
-    st.markdown("---")
-    st.subheader("📝 Detailed Task")
-    with st.form("new_task_form", clear_on_submit=True):
-        t_id = int(time.time()) 
-        t_title = st.text_input("Title")
-        t_desc = st.text_area("Details")
-        t_priority = st.select_slider("Priority", options=["low", "medium", "high"], value="medium")
-        if st.form_submit_button("Add to List"):
-            if t_title:
-                create_task_api({"id": t_id, "title": t_title, "description": t_desc, "completed": False, "priority": t_priority})
-                st.toast("Task added!", icon="✅")
-                time.sleep(0.5)
-                st.rerun()
-
-# --- Main Dashboard ---
-st.title("Control Center")
-
-# 1. THE LAZY INPUT BAR (The fix you needed)
-st.markdown("### ⚡ Quick Add")
-lazy_val = st.text_input("Type 'Task + Priority' and hit Enter", placeholder="e.g. Call the bank high", label_visibility="collapsed")
-
-if lazy_val:
-    parts = lazy_val.split()
-    # Check if the last word is a priority keyword
-    if parts[-1].lower() in ["high", "medium", "low"]:
-        prio = parts[-1].lower()
-        title = " ".join(parts[:-1])
-    else:
-        prio = "medium"
-        title = lazy_val
-    
-    # Auto-generate ID and hit the API
-    create_task_api({
-        "id": int(time.time()), 
-        "title": title, 
-        "description": "Quick add", 
-        "completed": False, 
-        "priority": prio
-    })
-    st.toast(f"Added: {title}", icon="🚀")
-    time.sleep(0.5)
-    st.rerun()
+# 1. THE LAZY INPUT (Improved)
+with st.container():
+    lazy_val = st.text_input("⚡ Quick Add (e.g., 'Buy Milk high')", key="lazy_input", placeholder="Type here and press Enter...")
+    if lazy_val:
+        parts = lazy_val.split()
+        prio = parts[-1].lower() if parts[-1].lower() in ["high", "medium", "low"] else "medium"
+        title = " ".join(parts[:-1]) if prio != "medium" or parts[-1].lower() == "medium" else lazy_val
+        
+        payload = {"id": int(time.time()*1000), "title": title, "description": "Quick add", "completed": False, "priority": prio}
+        res = api_call("POST", "/tasks/create_task", payload)
+        if res:
+            st.toast(f"Task Added: {title}")
+            time.sleep(0.5)
+            st.rerun()
 
 st.divider()
 
-# 2. Metrics & Data Fetching
-raw_tasks = fetch_tasks()
-if raw_tasks is None:
-    st.error("⚠️ Backend Offline. Waking up server...")
-    if st.button("🔄 Refresh Now"): st.rerun()
+# 2. Data Fetching
+res = api_call("GET", "/tasks")
+if not res or res.status_code != 200:
+    st.warning("📡 Backend is waking up... hang tight.")
+    if st.button("Retry Connection"): st.rerun()
     st.stop()
 
+raw_tasks = res.json()
 tasks = [t for t in raw_tasks if isinstance(t, dict)]
-total, completed = len(tasks), len([t for t in tasks if t.get('completed')])
 
-m1, m2, m3 = st.columns(3)
-m1.metric("Total", total)
-m2.metric("Done", completed)
-m3.metric("Pending", total - completed)
+# 3. Stats & Metrics
+col1, col2, col3 = st.columns(3)
+total = len(tasks)
+done = len([t for t in tasks if t.get('completed')])
+col1.metric("Total Tasks", total)
+col2.metric("Work Done", done)
+col3.metric("Pending", total - done)
 
-prog_val = (completed / total) if total > 0 else 0
-st.progress(prog_val, text=f"Productivity: {int(prog_val * 100)}%")
+if total > 0:
+    st.progress(done/total, text=f"Progress: {int((done/total)*100)}%")
 
-# 3. Filters
-st.markdown("### 🔍 Filter")
-c1, c2 = st.columns([2, 1])
-search = c1.text_input("Search tasks...", placeholder="Find a task...")
-prio_filter = c2.multiselect("Priority", ["low", "medium", "high"], default=["low", "medium", "high"])
+# 4. Filter Bar
+st.markdown("### 🔍 Filter & Sort")
+fc1, fc2 = st.columns([2, 1])
+search = fc1.text_input("Search tasks...", placeholder="Search...")
+prio_filter = fc2.multiselect("Priority", ["low", "medium", "high"], default=["low", "medium", "high"])
 
-# 4. Display Logic
+# 5. Task List Display
 st.markdown("---")
 if not tasks:
-    st.info("No tasks yet. Use the quick-add bar above!")
+    st.info("Your task list is clean! Use the Quick Add bar above.")
 else:
-    # Sort: Incomplete tasks first
-    tasks.sort(key=lambda x: x.get('completed', False))
+    # Sort: Incomplete tasks first, then by priority
+    prio_map = {"high": 0, "medium": 1, "low": 2}
+    tasks.sort(key=lambda x: (x.get('completed', False), prio_map.get(x.get('priority', 'medium'), 1)))
 
     for i, task in enumerate(tasks):
         if search.lower() not in task['title'].lower(): continue
@@ -130,28 +97,25 @@ else:
         prio_icon = {"high": "🔴", "medium": "🟡", "low": "🟢"}.get(task['priority'], "⚪")
 
         with st.container():
-            col_check, col_txt, col_btn = st.columns([0.5, 4, 1.5])
+            c1, c2, c3 = st.columns([0.5, 4, 1.5])
             
-            with col_check:
-                if st.checkbox("", value=is_done, key=f"c_{task['id']}_{i}"):
-                    if not is_done:
-                        task['completed'] = True
-                        update_task_api(task)
-                        st.rerun()
-                elif is_done:
-                    task['completed'] = False
-                    update_task_api(task)
+            # Checkbox: Logic updated to prevent double-rerun bugs
+            with c1:
+                new_status = st.checkbox("", value=is_done, key=f"check_{task['id']}_{i}")
+                if new_status != is_done:
+                    task['completed'] = new_status
+                    api_call("PUT", f"/tasks/update_task/{task['id']}", task)
                     st.rerun()
 
-            with col_txt:
+            with c2:
                 title_style = "done-text" if is_done else ""
                 st.markdown(f"<span class='{title_style}'>**{task['title']}**</span>", unsafe_allow_html=True)
                 st.caption(f"{prio_icon} {task['priority'].upper()} | {task['description']}")
 
-            with col_btn:
-                if st.button("🗑️ Delete", key=f"d_{task['id']}_{i}"):
-                    delete_task_api(task['id'])
-                    st.toast("Removed!")
-                    time.sleep(0.5)
+            with c3:
+                if st.button("🗑️ Delete", key=f"del_{task['id']}_{i}"):
+                    api_call("DELETE", f"/tasks/delete_task/{task['id']}")
+                    st.toast("Task Removed")
+                    time.sleep(0.3)
                     st.rerun()
             st.markdown("---")
