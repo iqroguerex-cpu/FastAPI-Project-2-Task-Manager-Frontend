@@ -5,117 +5,110 @@ import time
 # --- Configuration ---
 API_URL = "https://fastapi-project-2-task-manager-backend.onrender.com"
 
-st.set_page_config(page_title="TaskFlow Pro", page_icon="🚀", layout="wide")
+st.set_page_config(page_title="SimpleTask", page_icon="✅", layout="centered")
 
-# --- Custom Styling ---
+# --- CSS for Stability & Visibility ---
 st.markdown("""
     <style>
-    .main { background-color: #f8f9fa; }
-    .stButton>button { width: 100%; border-radius: 8px; transition: 0.3s; height: 3em; }
-    .task-card {
-        padding: 1rem; border-radius: 10px; background-color: white;
-        border-left: 5px solid #6366f1; margin-bottom: 10px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    .stApp { background-color: #ffffff; }
+    .task-row {
+        display: flex;
+        align-items: center;
+        padding: 10px;
+        border-bottom: 1px solid #eee;
     }
-    .done-text { text-decoration: line-through; color: #9ca3af; font-style: italic; }
+    .done-text { text-decoration: line-through; color: #a0aec0; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- API Wrapper with Error Handling ---
-def api_call(method, endpoint, json=None):
+# --- Robust API Helper ---
+def call_api(method, path, data=None):
     try:
-        url = f"{API_URL}{endpoint}"
-        if method == "GET": return requests.get(url, timeout=10)
-        if method == "POST": return requests.post(url, json=json, timeout=10)
-        if method == "PUT": return requests.put(url, json=json, timeout=10)
-        if method == "DELETE": return requests.delete(url, timeout=10)
-    except Exception as e:
-        st.error(f"Connection Error: {e}")
+        url = f"{API_URL}{path}"
+        if method == "GET": return requests.get(url, timeout=5)
+        if method == "POST": return requests.post(url, json=data, timeout=5)
+        if method == "PUT": return requests.put(url, json=data, timeout=5)
+        if method == "DELETE": return requests.delete(url, timeout=5)
+    except:
         return None
 
-# --- Main Dashboard Logic ---
-st.title("🚀 TaskFlow Control Center")
+# --- UI Header ---
+st.title("✅ Task Manager")
 
-# 1. THE LAZY INPUT (Improved)
-with st.container():
-    lazy_val = st.text_input("⚡ Quick Add (e.g., 'Buy Milk high')", key="lazy_input", placeholder="Type here and press Enter...")
-    if lazy_val:
-        parts = lazy_val.split()
-        prio = parts[-1].lower() if parts[-1].lower() in ["high", "medium", "low"] else "medium"
-        title = " ".join(parts[:-1]) if prio != "medium" or parts[-1].lower() == "medium" else lazy_val
-        
-        payload = {"id": int(time.time()*1000), "title": title, "description": "Quick add", "completed": False, "priority": prio}
-        res = api_call("POST", "/tasks/create_task", payload)
-        if res:
-            st.toast(f"Task Added: {title}")
-            time.sleep(0.5)
-            st.rerun()
+# 1. THE QUICK INPUT (Super Simplified)
+# No more parsing or sliders. Just type and enter.
+new_title = st.text_input("", placeholder="Type a task and hit Enter...", key="new_task_input")
+
+if new_title:
+    # Auto-generate a unique ID based on the exact microsecond
+    payload = {
+        "id": int(time.time() * 1000), 
+        "title": new_title, 
+        "description": "", 
+        "completed": False,
+        "priority": "none"  # Hardcoded so the backend doesn't crash
+    }
+    if call_api("POST", "/tasks/create_task", payload):
+        st.toast("Added!")
+        time.sleep(0.2)
+        st.rerun()
 
 st.divider()
 
-# 2. Data Fetching
-res = api_call("GET", "/tasks")
-if not res or res.status_code != 200:
-    st.warning("📡 Backend is waking up... hang tight.")
-    if st.button("Retry Connection"): st.rerun()
+# 2. Fetch & Display Data
+response = call_api("GET", "/tasks")
+
+if response is None or response.status_code != 200:
+    st.warning("📡 Server is waking up... hang tight.")
+    if st.button("Refresh"): st.rerun()
     st.stop()
 
-raw_tasks = res.json()
-tasks = [t for t in raw_tasks if isinstance(t, dict)]
+# Filter out any weird backend responses
+raw_data = response.json()
+tasks = [t for t in raw_data if isinstance(t, dict)]
 
-# 3. Stats & Metrics
-col1, col2, col3 = st.columns(3)
-total = len(tasks)
-done = len([t for t in tasks if t.get('completed')])
-col1.metric("Total Tasks", total)
-col2.metric("Work Done", done)
-col3.metric("Pending", total - done)
-
-if total > 0:
-    st.progress(done/total, text=f"Progress: {int((done/total)*100)}%")
-
-# 4. Filter Bar
-st.markdown("### 🔍 Filter & Sort")
-fc1, fc2 = st.columns([2, 1])
-search = fc1.text_input("Search tasks...", placeholder="Search...")
-prio_filter = fc2.multiselect("Priority", ["low", "medium", "high"], default=["low", "medium", "high"])
-
-# 5. Task List Display
-st.markdown("---")
 if not tasks:
-    st.info("Your task list is clean! Use the Quick Add bar above.")
+    st.info("Your list is empty. Type something above!")
 else:
-    # Sort: Incomplete tasks first, then by priority
-    prio_map = {"high": 0, "medium": 1, "low": 2}
-    tasks.sort(key=lambda x: (x.get('completed', False), prio_map.get(x.get('priority', 'medium'), 1)))
+    # Show stats simply
+    done_count = len([t for t in tasks if t.get('completed')])
+    st.caption(f"📊 {done_count} of {len(tasks)} tasks completed")
+    
+    # Sort: Newest at top
+    tasks.reverse()
 
     for i, task in enumerate(tasks):
-        if search.lower() not in task['title'].lower(): continue
-        if task['priority'] not in prio_filter: continue
-
+        t_id = task.get('id')
+        t_title = task.get('title', 'Untitled')
         is_done = task.get('completed', False)
-        prio_icon = {"high": "🔴", "medium": "🟡", "low": "🟢"}.get(task['priority'], "⚪")
 
+        # Unique container for each task
         with st.container():
-            c1, c2, c3 = st.columns([0.5, 4, 1.5])
+            col1, col2, col3 = st.columns([1, 8, 1])
             
-            # Checkbox: Logic updated to prevent double-rerun bugs
-            with c1:
-                new_status = st.checkbox("", value=is_done, key=f"check_{task['id']}_{i}")
-                if new_status != is_done:
-                    task['completed'] = new_status
-                    api_call("PUT", f"/tasks/update_task/{task['id']}", task)
+            # Checkbox Logic
+            with col1:
+                # Key combined with ID and index for absolute uniqueness
+                if st.checkbox("", value=is_done, key=f"cb_{t_id}_{i}"):
+                    if not is_done:
+                        task['completed'] = True
+                        call_api("PUT", f"/tasks/update_task/{t_id}", task)
+                        st.rerun()
+                elif is_done:
+                    task['completed'] = False
+                    task['priority'] = "none" # Keeping payload consistent
+                    call_api("PUT", f"/tasks/update_task/{t_id}", task)
                     st.rerun()
 
-            with c2:
-                title_style = "done-text" if is_done else ""
-                st.markdown(f"<span class='{title_style}'>**{task['title']}**</span>", unsafe_allow_html=True)
-                st.caption(f"{prio_icon} {task['priority'].upper()} | {task['description']}")
+            # Task Title
+            with col2:
+                if is_done:
+                    st.markdown(f"<p class='done-text'>{t_title}</p>", unsafe_allow_html=True)
+                else:
+                    st.markdown(f"**{t_title}**")
 
-            with c3:
-                if st.button("🗑️ Delete", key=f"del_{task['id']}_{i}"):
-                    api_call("DELETE", f"/tasks/delete_task/{task['id']}")
-                    st.toast("Task Removed")
-                    time.sleep(0.3)
+            # Delete Button
+            with col3:
+                if st.button("🗑️", key=f"del_{t_id}_{i}"):
+                    call_api("DELETE", f"/tasks/delete_task/{t_id}")
                     st.rerun()
-            st.markdown("---")
