@@ -1,117 +1,150 @@
 import streamlit as st
 import requests
-import pandas as pd
+import time
 
-API_URL = "https://fastapi-project-2-task-manager-backend.onrender.com/"
+# --- Configuration ---
+# Removed trailing slash to prevent double-slash API errors
+API_URL = "https://fastapi-project-2-task-manager-backend.onrender.com"
 
 st.set_page_config(page_title="TaskFlow Pro", page_icon="🚀", layout="wide")
 
+# --- Custom Styling ---
 st.markdown("""
     <style>
     .main { background-color: #f8f9fa; }
-    .stButton>button { width: 100%; border-radius: 5px; height: 3em; }
-    .task-card {
-        padding: 1.5rem;
+    .stButton>button { width: 100%; border-radius: 8px; height: 3em; transition: 0.3s; }
+    .stButton>button:hover { border: 1px solid #6366f1; color: #6366f1; }
+    .task-container {
+        padding: 1rem;
         border-radius: 10px;
-        border-left: 5px solid #6c757d;
         background-color: white;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        margin-bottom: 1rem;
+        border-left: 5px solid #6366f1;
+        margin-bottom: 10px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     }
+    .done-text { text-decoration: line-through; color: #9ca3af; }
     </style>
     """, unsafe_allow_html=True)
-
 
 # --- API Helper Functions ---
 def fetch_tasks():
     try:
-        res = requests.get(f"{API_URL}/tasks")
+        res = requests.get(f"{API_URL}/tasks", timeout=10)
         return res.json() if res.status_code == 200 else []
-    except:
-        st.error("⚠️ Backend Offline. Please start your FastAPI server.")
-        return []
-
+    except Exception:
+        return None
 
 def update_task_api(task):
     requests.put(f"{API_URL}/tasks/update_task/{task['id']}", json=task)
 
-
 def delete_task_api(tid):
     requests.delete(f"{API_URL}/tasks/delete_task/{tid}")
 
-
-# --- Sidebar: Add New Task ---
+# --- Sidebar: Smart Add ---
 with st.sidebar:
     st.title("🚀 TaskFlow Pro")
     st.markdown("---")
-    st.subheader("🆕 Create Task")
+    st.subheader("🆕 Quick Create")
+    
     with st.form("new_task_form", clear_on_submit=True):
-        t_id = st.number_input("Task ID", min_value=1, step=1)
-        t_title = st.text_input("Title", placeholder="e.g. Finish Project")
-        t_desc = st.text_area("Details")
-        t_priority = st.select_slider("Priority", options=["low", "medium", "high"])
+        # Auto-generate ID using timestamp to prevent duplicate key errors
+        t_id = int(time.time()) 
+        t_title = st.text_input("What needs doing?", placeholder="e.g. Finish project")
+        t_desc = st.text_area("Details (Optional)")
+        t_priority = st.select_slider("Priority", options=["low", "medium", "high"], value="medium")
 
-        if st.form_submit_button("Add to List"):
-            payload = {"id": t_id, "title": t_title, "description": t_desc, "completed": False, "priority": t_priority}
-            requests.post(f"{API_URL}/tasks/create_task", json=payload)
-            st.toast("Task added successfully!", icon="✅")
-            st.rerun()
+        if st.form_submit_button("Add Task"):
+            if t_title:
+                payload = {
+                    "id": t_id, 
+                    "title": t_title, 
+                    "description": t_desc if t_desc else "No description", 
+                    "completed": False, 
+                    "priority": t_priority
+                }
+                requests.post(f"{API_URL}/tasks/create_task", json=payload)
+                st.toast("Task added!", icon="✅")
+                time.sleep(0.5)
+                st.rerun()
+            else:
+                st.error("Please enter a title!")
 
-# --- Main Dashboard Logic ---
-tasks = fetch_tasks()
-total = len(tasks)
-completed = len([t for t in tasks if isinstance(t, dict) and t.get('completed')])
-
-# 1. Top Metrics & Progress
+# --- Main Dashboard ---
 st.title("Control Center")
-col_m1, col_m2, col_m3 = st.columns(3)
-col_m1.metric("Total Tasks", total)
-col_m2.metric("Completed", completed)
-col_m3.metric("Pending", total - completed)
+raw_tasks = fetch_tasks()
 
-progress = (completed / total) if total > 0 else 0
-st.progress(progress, text=f"Completion Progress: {int(progress * 100)}%")
+if raw_tasks is None:
+    st.error("⚠️ Backend Offline or Sleeping.")
+    st.info("Render's free tier takes ~1 minute to wake up. Please refresh in a moment.")
+    if st.button("🔄 Refresh Now"):
+        st.rerun()
+    st.stop()
 
-# 2. Filters and Search
-st.markdown("### 🔍 Filter Tasks")
+# Filter out non-dictionary items (like "Task Not Found" strings)
+tasks = [t for t in raw_tasks if isinstance(t, dict)]
+
+# 1. Metrics Section
+total = len(tasks)
+completed = len([t for t in tasks if t.get('completed')])
+pending = total - completed
+
+m1, m2, m3 = st.columns(3)
+m1.metric("Total", total)
+m2.metric("Done", completed)
+m3.metric("To-Do", pending)
+
+prog_val = (completed / total) if total > 0 else 0
+st.progress(prog_val, text=f"Progress: {int(prog_val * 100)}%")
+
+# 2. Search & Filters
+st.markdown("### 🔍 Filter")
 c1, c2 = st.columns([2, 1])
-search = c1.text_input("Search by title...", placeholder="Type to filter...")
-prio_filter = c2.multiselect("Filter Priority", ["low", "medium", "high"], default=["low", "medium", "high"])
+search = c1.text_input("Search tasks...", placeholder="Type to filter...")
+prio_filter = c2.multiselect("Priority", ["low", "medium", "high"], default=["low", "medium", "high"])
 
-# 3. Task Display Logic
+# 3. Task Display
 st.markdown("---")
 if not tasks:
-    st.info("No tasks found. Use the sidebar to add your first one!")
+    st.info("No tasks found. Add one in the sidebar!")
 else:
-    for task in tasks:
-        if not isinstance(task, dict): continue  # Handle API error strings
+    # Sort: Incomplete tasks first
+    tasks.sort(key=lambda x: x.get('completed', False))
 
-        # Apply Search & Filter
+    for i, task in enumerate(tasks):
+        # Filter Logic
         if search.lower() not in task['title'].lower(): continue
         if task['priority'] not in prio_filter: continue
 
-        # Visual Priority Badge
-        color = {"high": "#ff4b4b", "medium": "#ffa421", "low": "#28a745"}[task['priority']]
+        is_done = task.get('completed', False)
+        prio_color = {"high": "🔴", "medium": "🟡", "low": "🟢"}.get(task['priority'], "⚪")
 
+        # Visual Card Container
         with st.container():
-            # Create a card layout
             col_check, col_txt, col_btn = st.columns([0.5, 4, 1.5])
 
             with col_check:
-                # Toggle Status
-                is_done = st.checkbox("", value=task['completed'], key=f"check_{task['id']}")
-                if is_done != task['completed']:
-                    task['completed'] = is_done
+                # Key is unique using ID + Index
+                check_key = f"check_{task['id']}_{i}"
+                if st.checkbox("", value=is_done, key=check_key):
+                    if not is_done:
+                        task['completed'] = True
+                        update_task_api(task)
+                        st.rerun()
+                elif is_done:
+                    task['completed'] = False
                     update_task_api(task)
                     st.rerun()
 
             with col_txt:
-                st.markdown(f"**{task['title']}**")
-                st.caption(f"{task['description']} | Priority: :{task['priority']}[{task['priority'].upper()}]")
+                title_style = "done-text" if is_done else ""
+                st.markdown(f"<span class='{title_style}'>**{task['title']}**</span>", unsafe_allow_html=True)
+                st.caption(f"{prio_color} {task['priority'].upper()} | {task['description']}")
 
             with col_btn:
-                if st.button("🗑️ Delete", key=f"del_{task['id']}", use_container_width=True):
+                # Key is unique using ID + Index
+                if st.button("🗑️ Delete", key=f"del_{task['id']}_{i}"):
                     delete_task_api(task['id'])
-                    st.toast(f"Deleted: {task['title']}")
+                    st.toast("Deleted!")
+                    time.sleep(0.5)
                     st.rerun()
             st.markdown("---")
