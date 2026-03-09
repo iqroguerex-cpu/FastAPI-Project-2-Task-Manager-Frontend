@@ -6,9 +6,6 @@
 
 The interactive user interface for TaskFlow. This dashboard allows users to manage their tasks with a focus on speed, clarity, and "lazy-friendly" interactions.
 
-## 🔗 Live Demo
-- **Web App:** [https://taskmanagerfrontend.streamlit.app/](https://taskmanagerfrontend.streamlit.app/)
-
 ---
 
 ## ✨ UI Highlights
