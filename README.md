@@ -1,218 +1,154 @@
-# 🚀 TaskFlow Pro UI — Streamlit Frontend
+# 🎯 TaskFlow Frontend — Serverless Task Manager UI
 
-[![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=for-the-badge\&logo=streamlit\&logoColor=white)](https://streamlit.io/)
-[![Python](https://img.shields.io/badge/Python-3.9+-blue?style=for-the-badge\&logo=python\&logoColor=white)](https://www.python.org/)
-[![Requests](https://img.shields.io/badge/Requests-2.31-orange?style=for-the-badge)](https://pypi.org/project/requests/)
-[![Live Demo](https://img.shields.io/badge/Live-Demo-red?style=for-the-badge\&logo=streamlit)](https://taskmanagerfrontend.streamlit.app/)
+<p align="center">
 
-**TaskFlow Pro UI** is the interactive frontend dashboard for the TaskFlow ecosystem.
+[![Live App](https://img.shields.io/badge/Live%20App-Frontend-success?style=for-the-badge)](https://staging.d3b7v2fqtuw73g.amplifyapp.com/)
+[![Backend API](https://img.shields.io/badge/API-AWS%20Lambda-blue?style=for-the-badge\&logo=amazonaws)](https://89djj7pnai.execute-api.ap-south-1.amazonaws.com/default/)
+![HTML](https://img.shields.io/badge/HTML-5-orange?style=for-the-badge\&logo=html5)
+![TailwindCSS](https://img.shields.io/badge/TailwindCSS-UI-blue?style=for-the-badge\&logo=tailwindcss)
+![JavaScript](https://img.shields.io/badge/JavaScript-ES6-yellow?style=for-the-badge\&logo=javascript)
+![AWS](https://img.shields.io/badge/Hosted%20on-AWS%20Amplify-purple?style=for-the-badge\&logo=amazonaws)
 
-Built with **Streamlit**, this interface allows users to efficiently manage tasks with a focus on **speed, simplicity, and productivity-oriented design**.
-
-The UI communicates with a **FastAPI backend hosted on Render**, creating a complete full-stack task management application.
-
----
-
-# 🌐 Live Application
-
-**Streamlit Frontend**
-
-https://taskmanagerfrontend.streamlit.app/
-
-**FastAPI Backend**
-
-https://fastapi-project-2-task-manager-backend.onrender.com
-
-**API Documentation**
-
-https://fastapi-project-2-task-manager-backend.onrender.com/docs
+</p>
 
 ---
 
-# ✨ Key Features
+## 🚀 Overview
 
-### ⚡ Quick Task Entry
+**TaskFlow Frontend** is a modern, responsive **task management dashboard** built with **HTML, Tailwind CSS, and JavaScript**, designed to interact with a **serverless FastAPI backend deployed on AWS Lambda**.
 
-A **lazy-add workflow** that allows users to rapidly create tasks with minimal typing.
-
-Example:
-
-```
-Call bank high
-```
-
-Automatically parses:
-
-```
-Title → Call bank  
-Priority → High
-```
+The backend is packaged and deployed via **Amazon S3**, enabling a fully scalable cloud-based architecture.
 
 ---
 
-### 📊 Real-Time Progress Tracking
+## 🌐 Live Application
 
-The dashboard automatically calculates:
-
-* total tasks
-* completed tasks
-* pending tasks
-* productivity percentage
-
-Displayed using interactive metrics and progress bars.
+👉 https://staging.d3b7v2fqtuw73g.amplifyapp.com/
 
 ---
 
-### 🔍 Dynamic Filtering
+## ✨ Features
 
-Powerful filtering tools:
-
-* live search
-* priority filtering
-* instant updates
-
-This allows users to quickly locate specific tasks.
-
----
-
-### 🎯 Priority Visualization
-
-Tasks are visually categorized by priority:
-
-| Priority | Indicator |
-| -------- | --------- |
-| High     | 🔴        |
-| Medium   | 🟡        |
-| Low      | 🟢        |
-
-This helps users identify urgent work instantly.
+* 📋 View all tasks
+* ➕ Create new tasks
+* ✏️ Update tasks
+* ❌ Delete tasks
+* 🔄 Refresh task list
+* 🎨 Modern dark UI (Tailwind CSS)
+* ⚡ Real-time API integration
+* ☁️ Fully serverless backend integration
 
 ---
 
-### 🎉 Completion Feedback
+## 🛠 Tech Stack
 
-Completing a task triggers visual feedback:
+### Frontend
 
-* strike-through animation
-* progress updates
-* confirmation toast
+* HTML5
+* Tailwind CSS
+* JavaScript (Fetch API)
 
-This improves the overall UX and productivity flow.
+### Backend Integration
 
----
+* FastAPI (via AWS Lambda + Mangum)
+* API Gateway
+* DynamoDB
+* Amazon S3 (deployment package)
 
-# 🏗 Architecture
+### Hosting
 
-```
-Streamlit Frontend
-        │
-        ▼
- FastAPI Backend (Render)
-        │
-        ▼
-   In-Memory Task Store
-```
-
-The system architecture allows the backend to be easily upgraded with:
-
-* PostgreSQL
-* MongoDB
-* Redis caching
-* authentication systems
+* AWS Amplify
 
 ---
 
-# 🔌 API Integration
+## 📂 Project Structure
 
-The frontend communicates with the backend using the **Requests library**.
-
-Example configuration:
-
-```python
-API_URL = "https://fastapi-project-2-task-manager-backend.onrender.com"
-```
-
-Example request:
-
-```python
-requests.get(f"{API_URL}/tasks")
+```bash id="tfui1"
+.
+├── index.html
+├── README.md
 ```
 
 ---
 
-# 📂 Project Structure
+## ⚙️ Running Locally
 
+Clone the repository:
+
+```bash id="tfui2"
+git clone https://github.com/your-username/taskflow-frontend.git
+cd taskflow-frontend
 ```
-taskflow-frontend
-│
-├── app.py
-├── requirements.txt
-└── README.md
+
+Open:
+
+```bash id="tfui3"
+index.html
+```
+
+in your browser.
+
+---
+
+## 🔗 API Integration
+
+Base URL:
+
+```bash id="tfui4"
+https://89djj7pnai.execute-api.ap-south-1.amazonaws.com/default
+```
+
+### Endpoints Used
+
+* `GET /tasks` → Fetch all tasks
+* `GET /tasks/{id}` → Get task
+* `POST /tasks/create_task` → Create task
+* `PUT /tasks/update_task/{id}` → Update task
+* `DELETE /tasks/delete_task/{id}` → Delete task
+
+---
+
+## ☁️ Architecture
+
+```bash id="tfui5"
+Frontend (Amplify)
+        ↓
+API Gateway
+        ↓
+Lambda (FastAPI via Mangum)
+        ↓
+DynamoDB
+        ↑
+Deployment package stored in S3
 ```
 
 ---
 
-# ⚙️ Local Setup
+## 🎨 UI Highlights
 
-Clone the repository
-
-```
-git clone https://github.com/iqroguerex-cpu/fastapi-project-2-task-manager-frontend
-```
-
-Navigate into the project
-
-```
-cd fastapi-project-2-task-manager-frontend
-```
-
-Install dependencies
-
-```
-pip install -r requirements.txt
-```
-
-Run the application
-
-```
-streamlit run app.py
-```
+* 🌙 Dark theme
+* 📱 Fully responsive design
+* ⚡ Fast and lightweight
+* 🎯 Clean task management workflow
 
 ---
 
-# ☁️ Deployment
+## 🔮 Future Improvements
 
-The UI is deployed using **Streamlit Community Cloud**.
-
-Deployment automatically:
-
-* pulls code from GitHub
-* installs dependencies
-* launches the Streamlit app
+* 🔐 Authentication (Cognito / JWT)
+* 📅 Task deadlines & reminders
+* 🏷 Task categories
+* 🔍 Search & filtering
+* 📊 Analytics dashboard
 
 ---
 
-# 🔗 Backend Repository
-
-FastAPI backend source code:
-
-https://github.com/iqroguerex-cpu/fastapi-project-2-task-manager-backend
-
----
-
-# 📄 License
-
-This project is released under the **MIT License**.
-
----
-
-# 👨‍💻 Author
+## 👨‍💻 Author
 
 **Chinmay V Chatradamath**
 
-GitHub
-https://github.com/iqroguerex-cpu
-
 ---
 
-⭐ If you found this project useful, consider **starring the repository**.
+## ⭐ Support
+
+If you like this project, give it a ⭐ on GitHub!
